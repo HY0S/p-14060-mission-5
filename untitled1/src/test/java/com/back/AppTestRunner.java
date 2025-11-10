@@ -12,7 +12,7 @@ public class AppTestRunner {
             ByteArrayOutputStream byteArrayOutputStream = TestUtil.setOutToByteArray();
 
             try {
-                new com.back.App(scanner).run();
+                new App(scanner).run();
             } catch (Exception e) {
                 // 정상적인 종료를 위한 예외 처리
             }

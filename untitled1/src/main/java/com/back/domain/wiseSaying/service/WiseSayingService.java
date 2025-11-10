@@ -3,27 +3,21 @@ package com.back.domain.wiseSaying.service;
 import com.back.domain.wiseSaying.entity.QueryParse;
 import com.back.domain.wiseSaying.entity.WiseSaying;
 import com.back.domain.wiseSaying.repository.WiseSayingRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
+import javax.management.Query;
 import java.util.*;
 
-@Service
+
 public class WiseSayingService {
 
-    private final WiseSayingRepository wiseSayingRepository;
+    private static WiseSayingRepository wiseSayingRepository;
 
-    @Autowired
-    public WiseSayingService(WiseSayingRepository wiseSayingRepository) {
-        this.wiseSayingRepository = wiseSayingRepository;
+    public WiseSayingService() {
+        wiseSayingRepository = new WiseSayingRepository();
     }
 
     public boolean remove(int id) {
-        if (wiseSayingRepository.existsById((long) id)) {
-            wiseSayingRepository.deleteById((long) id);
-            return true;
-        }
-        return false;
+        return wiseSayingRepository.remove(id);
     }
 
     public void build() {
@@ -31,26 +25,28 @@ public class WiseSayingService {
     }
 
     public int write(String content, String author) { //명언을 등록하기
-        WiseSaying ws = new WiseSaying(null, content, author);
-        WiseSaying saved = wiseSayingRepository.save(ws);
-        return saved.getIdAsInt();
+
+        int id = wiseSayingRepository.getLastIdFromFile()+1;
+        //wiseSayingRepository.setLastIdForFile(id);
+        WiseSaying ws = new WiseSaying(id,content,author);
+        wiseSayingRepository.write(ws);
+
+        return id;
     }
 
     public WiseSaying read(int id) {
-        return wiseSayingRepository.findById((long) id).orElse(null);
+        return wiseSayingRepository.read(id);
     }
 
+
     public List<WiseSaying> list() {
-        return wiseSayingRepository.findAllOrderByIdDesc();
+        return wiseSayingRepository.getWiseSayingList();
     }
 
     public void modify(int id, String content, String author) {
-        WiseSaying existing = wiseSayingRepository.findById((long) id).orElse(null);
-        if (existing != null) {
-            existing.setContent(content);
-            existing.setAuthor(author);
-            wiseSayingRepository.save(existing);
-        }
+        WiseSaying ws = new WiseSaying(id,content,author);
+
+        wiseSayingRepository.write(ws);
     }
 
     //return이 null일 경우 잘못된 command
@@ -105,8 +101,7 @@ public class WiseSayingService {
     }
 
 
-    // keyword가 있으면 참, 없으면 거짓 (이제는 Repository에서 처리하므로 사용 안 함)
-    @Deprecated
+    //keyword가 있으면 참, 없으면 거짓
     public List<WiseSaying> filteringKeyword(List<WiseSaying> wsList, String keywordType, String keyword) {
         List<WiseSaying> wiseSayingList = new ArrayList<>();
         for(WiseSaying ws : wsList){
@@ -127,38 +122,47 @@ public class WiseSayingService {
     //전체 페이지 개수, 현재 페이지의 wiseSaying 리스트 반환
     //Null 반환하는 경우 -> 요청한 페이지가 전체 페이지 수보다 큰 경우
     public Map<Integer,List<WiseSaying>> search(int page, String keywordType, String keyword) {
-        List<WiseSaying> wiseSayingList;
-        
-        // 키워드 검색
-        if(keyword != null && keywordType != null) {
-            if (keywordType.equalsIgnoreCase("author")) {
-                wiseSayingList = wiseSayingRepository.findByAuthorContaining(keyword);
-            } else if (keywordType.equalsIgnoreCase("content")) {
-                wiseSayingList = wiseSayingRepository.findByContentContaining(keyword);
-            } else {
-                wiseSayingList = wiseSayingRepository.findAllOrderByIdDesc();
-            }
-            // 최신순 정렬
-            Collections.reverse(wiseSayingList);
-        } else {
-            // 전체 조회 (이미 최신순으로 정렬됨)
-            wiseSayingList = wiseSayingRepository.findAllOrderByIdDesc();
-        }
-        
+        List<WiseSaying> wiseSayingList =wiseSayingRepository.getWiseSayingList(); // 전체 wiseSaying 가져오기
+        Collections.reverse(wiseSayingList); //전체 wiseSaying 역순으로 뒤집어서 최신순 정렬
         List<WiseSaying> resultWiseSayingList = new ArrayList<>();
-        int pageSize = countPages(wiseSayingList);
 
-        if(page > pageSize || wiseSayingList.isEmpty())
-            return null; //잘못된 페이지 요청
+        int pageSize;
 
-        int start = (page-1)*5;
-        int end = Math.min(page*5, wiseSayingList.size());
-        for (int i = start; i < end; i++){ //요청한 페이지의 5개의 id를 list에 삽입
-            resultWiseSayingList.add(wiseSayingList.get(i));
+        if(keyword==null && keywordType==null){
+            pageSize = countPages(wiseSayingList);
+            //DEBUG
+            //System.out.println("실행됨");
+
+            if(wiseSayingList.isEmpty() || page > pageSize || page < 1)
+                return null; //잘못된 페이지 요청
+
+            int start = (page-1)*5;
+            int end = Math.min(page*5,wiseSayingList.size());
+            for (int i = start; i < end; i++){ //요청한 페이지의 5개의 id를 list에 삽입
+                resultWiseSayingList.add(wiseSayingList.get(i));
+            }
+
+            Map<Integer,List<WiseSaying>> result =new HashMap<>();
+            result.put(pageSize,resultWiseSayingList);
+            return result;
         }
 
-        Map<Integer,List<WiseSaying>> result = new HashMap<>();
-        result.put(pageSize, resultWiseSayingList);
-        return result;
+        else if (keyword!=null && keywordType!=null){
+            List<WiseSaying> filteredWiseSayingList = filteringKeyword(wiseSayingList, keywordType, keyword);
+            pageSize = countPages(filteredWiseSayingList);
+
+            if(filteredWiseSayingList.isEmpty() || page > pageSize || page < 1)
+                return null;
+            int start = (page-1)*5;
+            int end = Math.min(page*5,filteredWiseSayingList.size());
+            for (int i = start ; i < end; i++){
+                resultWiseSayingList.add(filteredWiseSayingList.get(i));
+            }
+
+            Map<Integer,List<WiseSaying>> result =new HashMap<>();
+            result.put(pageSize,resultWiseSayingList);
+            return result;
+        }
+        return null;
     }
 }

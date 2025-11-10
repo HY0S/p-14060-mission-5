@@ -6,46 +6,39 @@ package com.back.domain.wiseSaying.controller;
 import com.back.domain.wiseSaying.entity.QueryParse;
 import com.back.domain.wiseSaying.entity.WiseSaying;
 import com.back.domain.wiseSaying.service.WiseSayingService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
-@Component
 public class WiseSayingController {
-    private WiseSayingService wiseSayingService;
-    private Scanner scanner;
+    private final WiseSayingService wiseSayingService;
+    private final Scanner scanner;
 
-    @Autowired
-    public WiseSayingController(WiseSayingService wiseSayingService) {
-        this.wiseSayingService = wiseSayingService;
-    }
-    
-    public void setScanner(Scanner scanner) {
+    public WiseSayingController(Scanner scanner) {
+        this.wiseSayingService = new WiseSayingService();
         this.scanner = scanner;
     }
 
     public void write(){
-        System.out.print("Content : ");
+        System.out.print("명언 : ");
         String content = scanner.nextLine();
-        System.out.print("Author : ");
+        System.out.print("작가 : ");
         String author = scanner.nextLine();
 
         int id = wiseSayingService.write(content,author);
-        System.out.println("No."+id+ "is written.");
+        System.out.println(id+ "번 명언이 등록되었습니다.");
     }
 
     public void remove(String command){
         String numbersOnly = command.replaceAll("[^0-9]", "");
         int id = Integer.parseInt(numbersOnly);
         if(wiseSayingService.remove(id)){
-            System.out.println("No." + id + "is removed.");
+            System.out.println(id + "번 명언이 삭제되었습니다.");
         }
         else{
-            System.out.println("No." + id+ "is not exist.");
+            System.out.println(id+ "번 명언은 존재하지 않습니다.");
         }
     }
 
@@ -55,19 +48,19 @@ public class WiseSayingController {
         WiseSaying w = wiseSayingService.read(id);
 
         if(w != null){
-            System.out.println("Content (before) :" + w.getContent());
-            System.out.print("Content (after) : ");
+            System.out.println("명언(기존) " + w.getContent());
+            System.out.print("명언 : ");
             String content = scanner.nextLine();
 
 
-            System.out.println("Author (before):  " + w.getAuthor());
-            System.out.print("Author (after) : ");
+            System.out.println("작가(기존) " + w.getAuthor());
+            System.out.print("작가 : ");
             String author = scanner.nextLine();
 
             wiseSayingService.modify(id,content,author);
         }
         else{
-            System.out.println("No." + id+ "is not exist.");
+            System.out.println(id+ "번 명언은 존재하지 않습니다.");
         }
     }
 
@@ -81,16 +74,16 @@ public class WiseSayingController {
         if(q.getPage() > 0) {
             Map<Integer, List<WiseSaying>> result = wiseSayingService.search(q.getPage(), q.getKeywordType(), q.getKeyword());
             if (result == null) {
-                System.out.println("error request");
+                System.out.println("잘못된 요청");
             } else {
                 result.forEach((k, v) -> {
-                    System.out.println("No / Author / Content");
+                    System.out.println("번호 / 작가 / 명언");
                     System.out.println("----------------------");
                     for (WiseSaying w : v) {
-                        System.out.println(w.getIdAsInt() + " / " + w.getAuthor() + " / " + w.getContent());
+                        System.out.println(w.getId() + " / " + w.getAuthor() + " / " + w.getContent());
                     }
                     System.out.println("----------------------");
-                    System.out.print("page : ");
+                    System.out.print("페이지 : ");
                     for (int i = 1; i <= k; i++) {
                         if (i != 1) {
                             System.out.print(" / ");
@@ -111,8 +104,8 @@ public class WiseSayingController {
         List<WiseSaying> wsList = wiseSayingService.list();
         if (wsList == null || wsList.isEmpty()) {
             for(int i=1;i<11;i++){
-                String content= "dummy" + i;
-                String author = "dummyAuthor" + i ;
+                String content= "더미" + i;
+                String author = "더미작가" + i ;
                 wiseSayingService.write(content,author);
             }
         }
